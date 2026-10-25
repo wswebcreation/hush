@@ -161,29 +161,41 @@ import Foundation
         #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.1", current: "1.1", releases: releases) == .nothing)
     }
 
-    @Test func updateShowsOnlyNewerNotes() {
+    @Test func updateShowsTheWholeChangelog() {
         let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.1", releases: releases)
         guard case .updated(let notes, _) = plan else { Issue.record("expected update"); return }
-        #expect(notes.map(\.version) == ["1.1"])
+        #expect(notes.map(\.version) == ["1.1", "1.0"])
     }
 
-    @Test func existingInstallWithoutLastSeenShowsCurrentRelease() {
-        let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.1", releases: releases)
+    @Test func changelogNeverListsVersionsNewerThanCurrent() {
+        let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.0", releases: releases)
         guard case .updated(let notes, _) = plan else { Issue.record("expected update"); return }
-        #expect(notes.map(\.version) == ["1.1"])
+        #expect(notes.map(\.version) == ["1.0"])
     }
 
     @Test func patchSkipsTheIntroButMinorShowsIt() {
         let r = [ReleaseEntry(version: "1.1", notes: ["c"]), ReleaseEntry(version: "1.0.1", notes: ["b"]), ReleaseEntry(version: "1.0", notes: ["a"])]
         #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.0.1", releases: r)
-                == .updated(notes: [r[1]], showIntro: false))
+                == .updated(notes: [r[1], r[2]], showIntro: false))
         #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.1", releases: r)
-                == .updated(notes: [r[0], r[1]], showIntro: true))
+                == .updated(notes: r, showIntro: true))
         #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.0.1", releases: r)
-                == .updated(notes: [r[1]], showIntro: true))
+                == .updated(notes: [r[1], r[2]], showIntro: true))
     }
 
     @Test func versionsCompareNumerically() {
         #expect(ReleaseNotes.compare("1.10", "1.9") == .orderedDescending)
+    }
+}
+
+@Suite struct MarkdownTableTests {
+    @Test func parsesRowsAndDropsTheDivider() {
+        let rows = MarkdownTable.parse(["| Actie | Eigenaar |", "|---|---|", "| Offerte sturen | **Wim** |"])
+        #expect(rows == [["Actie", "Eigenaar"], ["Offerte sturen", "**Wim**"]])
+    }
+
+    @Test func recognisesTableLines() {
+        #expect(MarkdownTable.isRow("  | a | b |"))
+        #expect(!MarkdownTable.isRow("Gewone tekst | met pijp"))
     }
 }

@@ -10,6 +10,10 @@ public struct ReleaseEntry: Equatable, Sendable {
 public enum ReleaseNotes {
     /// Newest first. Add an entry here for every release; `Info.plist` must carry the same version.
     public static let entries: [ReleaseEntry] = [
+        ReleaseEntry(version: "1.0.3", notes: [
+            "Tabellen in de notities worden nu ook in de app als tabel getoond.",
+            "Het scherm met wat er nieuw is toont voortaan alle wijzigingen, niet alleen de laatste.",
+        ]),
         ReleaseEntry(version: "1.0.2", notes: [
             "Hush kon crashen bij het sluiten van een scherm, bijvoorbeeld na het geven van toegang tot de microfoon. Dat is verholpen.",
         ]),
@@ -26,12 +30,9 @@ public enum ReleaseNotes {
         ]),
     ]
 
-    /// Entries newer than `lastSeen` up to and including `current`, newest first.
-    /// Without a last seen version only the current release is shown.
-    public static func entries(since lastSeen: String?, current: String, in list: [ReleaseEntry] = ReleaseNotes.entries) -> [ReleaseEntry] {
-        let upToCurrent = list.filter { compare($0.version, current) != .orderedDescending }
-        guard let lastSeen else { return upToCurrent.filter { compare($0.version, current) == .orderedSame } }
-        return upToCurrent.filter { compare($0.version, lastSeen) == .orderedDescending }
+    /// Every release up to and including `current`, newest first. The changelog screen shows the whole history.
+    public static func entries(upTo current: String, in list: [ReleaseEntry] = ReleaseNotes.entries) -> [ReleaseEntry] {
+        list.filter { compare($0.version, current) != .orderedDescending }
     }
 
     public static func compare(_ a: String, _ b: String) -> ComparisonResult {
@@ -42,7 +43,7 @@ public enum ReleaseNotes {
 public enum LaunchPlan: Equatable, Sendable {
     /// Very first launch: the story, then the permission steps, then the help.
     case firstRun
-    /// A newer version than the one last opened. The Hush story is only repeated for a new major or minor version.
+    /// A newer version than the one last opened; `notes` is the full changelog. The Hush story is only repeated for a new major or minor version.
     case updated(notes: [ReleaseEntry], showIntro: Bool)
     case nothing
 
@@ -50,7 +51,7 @@ public enum LaunchPlan: Equatable, Sendable {
                               releases: [ReleaseEntry] = ReleaseNotes.entries) -> LaunchPlan {
         guard onboardingDone else { return .firstRun }
         if let last = lastSeenVersion, ReleaseNotes.compare(last, current) != .orderedAscending { return .nothing }
-        return .updated(notes: ReleaseNotes.entries(since: lastSeenVersion, current: current, in: releases),
+        return .updated(notes: ReleaseNotes.entries(upTo: current, in: releases),
                         showIntro: lastSeenVersion.map { majorMinor($0) != majorMinor(current) } ?? true)
     }
 

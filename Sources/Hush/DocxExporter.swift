@@ -34,9 +34,9 @@ enum DocxExporter {
             let line = lines[i].trimmingCharacters(in: .whitespaces)
             i += 1
             if line.isEmpty { continue }
-            if line.hasPrefix("|") {
+            if MarkdownTable.isRow(line) {
                 var rows = [line]
-                while i < lines.count, lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("|") {
+                while i < lines.count, MarkdownTable.isRow(lines[i]) {
                     rows.append(lines[i].trimmingCharacters(in: .whitespaces)); i += 1
                 }
                 body += table(rows)
@@ -82,13 +82,7 @@ enum DocxExporter {
 
     /// A Markdown table (`| a | b |` rows, with a `|---|---|` divider after the header) as a real Word table.
     private static func table(_ rows: [String]) -> String {
-        func cells(_ row: String) -> [String] {
-            var parts = row.split(separator: "|", omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
-            if parts.first == "" { parts.removeFirst() }
-            if parts.last == "" { parts.removeLast() }
-            return parts
-        }
-        let data = rows.filter { !$0.allSatisfy { "|-: ".contains($0) } }.map(cells)
+        let data = MarkdownTable.parse(rows)
         let columns = data.map(\.count).max() ?? 0
         guard columns > 0 else { return "" }
         let width = 9026 / columns
