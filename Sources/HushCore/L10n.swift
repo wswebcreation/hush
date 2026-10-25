@@ -188,6 +188,8 @@ public enum L10n {
     public static let storyStart = "Beginnen"
     public static let storyClose = "Sluiten"
     public static func releaseNotesTitle(_ version: String) -> String { "Nieuw in Hush \(version)" }
+    public static let hintTitle = "Hush zit nu in je menubalk"
+    public static func hintBody(_ shortcut: String) -> String { "Klik op het golfje rechtsboven om een opname te starten, of druk op \(shortcut)." }
     public static let releaseNotesWindow = "Wat is er nieuw?"
     public static func releaseNotesVersion(_ version: String) -> String { "Versie \(version)" }
     public static let helpTitle = "Zo werkt Hush"

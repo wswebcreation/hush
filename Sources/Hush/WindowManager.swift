@@ -51,6 +51,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
         { DispatchQueue.main.async(execute: action) }
     }
 
+    /// The last window of a first run or update is gone: show where Hush lives now.
+    private func launchWindowsDone(_ model: AppModel) {
+        guard model.pendingMenuBarHint else { return }
+        model.pendingMenuBarHint = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak model] in model?.showMenuBarHint?() }
+    }
+
     private func present(_ window: NSWindow) {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -119,7 +126,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
         let finish: (AppModel) -> Void = { [weak self] model in
             model.settings.hasCompletedOnboarding = true
             self?.onboarding?.close()
-            if thenHelp { self?.showHelp(model: model) }
+            if thenHelp { self?.showHelp(model: model) } else { self?.launchWindowsDone(model) }
         }
         guard !steps.isEmpty else { finish(model); return }
         let w = makeWindow(OnboardingView(steps: steps, onFinish: afterClick { [weak model] in if let model { finish(model) } }).environmentObject(model), size: NSSize(width: 560, height: 520), title: L10n.flowWindow)
@@ -174,7 +181,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if window === library { library = nil }
         if window === settings { settings = nil }
         if window === about { about = nil }
-        if window === help { help = nil; AppModel.shared.settings.hasSeenHelp = true }
+        if window === help {
+            help = nil; AppModel.shared.settings.hasSeenHelp = true
+            launchWindowsDone(AppModel.shared)
+        }
         if window === onboarding { onboarding = nil }
         if window === keyHelp { keyHelp = nil }
         if window === releaseNotes {

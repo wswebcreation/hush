@@ -50,6 +50,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var flows: [UUID: FlowModel] = [:]
 
     let windows = WindowManager()
+    /// Set after a first run or an update: when the launch windows are done, point at the menu bar icon.
+    var pendingMenuBarHint = false
+    var showMenuBarHint: (() -> Void)?
     var onRecordingStateChange: (() -> Void)?
 
     private init() {
@@ -71,17 +74,18 @@ final class AppModel: ObservableObject {
         settings.lastSeenVersion = version
         switch plan {
         case .firstRun:
+            pendingMenuBarHint = true
             windows.showStory(model: self, thenOnboarding: true)
-        case .updated(let notes, let showIntro):
-            // Intro (new major or minor version only), then what is new, then any permission that is still missing.
-            let showNotes = { [weak self] in
+        case .updated(let notes):
+            // Intro, then what is new, then any permission that is still missing.
+            pendingMenuBarHint = true
+            windows.showStory(model: self) { [weak self] in
                 guard let self else { return }
                 self.windows.showReleaseNotes(entries: notes) { [weak self] in
                     guard let self else { return }
                     self.windows.showOnboarding(model: self, thenHelp: false)
                 }
             }
-            if showIntro { windows.showStory(model: self, then: showNotes) } else { showNotes() }
         case .nothing:
             windows.showOnboarding(model: self, thenHelp: !settings.hasSeenHelp)
         }

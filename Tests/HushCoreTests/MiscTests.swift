@@ -163,24 +163,20 @@ import Foundation
 
     @Test func updateShowsTheWholeChangelog() {
         let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.1", releases: releases)
-        guard case .updated(let notes, _) = plan else { Issue.record("expected update"); return }
+        guard case .updated(let notes) = plan else { Issue.record("expected update"); return }
         #expect(notes.map(\.version) == ["1.1", "1.0"])
     }
 
     @Test func changelogNeverListsVersionsNewerThanCurrent() {
         let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.0", releases: releases)
-        guard case .updated(let notes, _) = plan else { Issue.record("expected update"); return }
+        guard case .updated(let notes) = plan else { Issue.record("expected update"); return }
         #expect(notes.map(\.version) == ["1.0"])
     }
 
-    @Test func patchSkipsTheIntroButMinorShowsIt() {
+    @Test func everyUpdateShowsTheFullChangelog() {
         let r = [ReleaseEntry(version: "1.1", notes: ["c"]), ReleaseEntry(version: "1.0.1", notes: ["b"]), ReleaseEntry(version: "1.0", notes: ["a"])]
-        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.0.1", releases: r)
-                == .updated(notes: [r[1], r[2]], showIntro: false))
-        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.1", releases: r)
-                == .updated(notes: r, showIntro: true))
-        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.0.1", releases: r)
-                == .updated(notes: [r[1], r[2]], showIntro: true))
+        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.0.1", releases: r) == .updated(notes: [r[1], r[2]]))
+        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.1", releases: r) == .updated(notes: r))
     }
 
     @Test func versionsCompareNumerically() {

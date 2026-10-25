@@ -68,7 +68,69 @@ final class StatusItemController: NSObject {
         return image
     }
 
-    @objc func toggle() { panel?.isVisible == true ? close() : open() }
+    // MARK: First launch hint
+
+    private var hintPanel: NSPanel?
+    private var hintTimers: [Timer] = []
+    private var hintMonitor: Any?
+
+    /// Points at the icon for a few seconds: a callout under it and a pulsing icon. Clicking anywhere dismisses it.
+    func showHint() {
+        guard let button = item.button, let buttonWindow = button.window, model.phase == .idle else { return }
+        hideHint()
+        let shortcut = model.shortcut.display
+        let probe = NSHostingView(rootView: MenuBarHintView(shortcut: shortcut, caretOffset: 0))
+        let size = probe.fittingSize
+        let buttonFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        var x = buttonFrame.midX - size.width / 2
+        if let screen = buttonWindow.screen { x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8) }
+        let offset = buttonFrame.midX - (x + size.width / 2)
+        let host = NSHostingView(rootView: MenuBarHintView(shortcut: shortcut, caretOffset: offset).preferredColorScheme(.dark))
+        let p = NSPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: false)
+        p.contentView = host
+        p.isOpaque = false
+        p.backgroundColor = .clear
+        p.hasShadow = false
+        p.level = .statusBar
+        p.ignoresMouseEvents = true
+        p.isReleasedWhenClosed = false
+        p.appearance = NSAppearance(named: .darkAqua)
+        p.setFrameOrigin(NSPoint(x: x, y: buttonFrame.minY - size.height - 2))
+        p.orderFrontRegardless()
+        hintPanel = p
+
+        if !reduceMotion {
+            let start = Date()
+            hintTimers.append(Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak button] _ in
+                let t = Date().timeIntervalSince(start).truncatingRemainder(dividingBy: 1.0)
+                button?.alphaValue = 0.35 + 0.65 * (0.5 + 0.5 * cos(t * 2 * .pi))
+            })
+        }
+        hintTimers.append(Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hideHint() }
+        })
+        hintMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] _ in
+            Task { @MainActor in self?.hideHint() }
+        }
+    }
+
+    func hideHint() {
+        hintTimers.forEach { $0.invalidate() }
+        hintTimers = []
+        if let hintMonitor { NSEvent.removeMonitor(hintMonitor) }
+        hintMonitor = nil
+        guard let closing = hintPanel else { return }
+        hintPanel = nil
+        item.button?.alphaValue = 1
+        closing.orderOut(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { _ = closing }
+    }
+
+    @objc func toggle() {
+        hideHint()
+        panel?.isVisible == true ? close() : open()
+    }
 
     func open() {
         guard let button = item.button, let buttonWindow = button.window else { return }

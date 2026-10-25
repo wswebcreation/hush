@@ -10,6 +10,10 @@ public struct ReleaseEntry: Equatable, Sendable {
 public enum ReleaseNotes {
     /// Newest first. Add an entry here for every release; `Info.plist` must carry the same version.
     public static let entries: [ReleaseEntry] = [
+        ReleaseEntry(version: "1.1", notes: [
+            "Na het doorlopen van de eerste stappen laat een aanwijzing onder de menubalk zien waar Hush nu staat.",
+            "Bij elke nieuwe versie zie je weer eerst de uitleg over Hush, daarna alle wijzigingen.",
+        ]),
         ReleaseEntry(version: "1.0.3", notes: [
             "Tabellen in de notities worden nu ook in de app als tabel getoond.",
             "Het scherm met wat er nieuw is toont voortaan alle wijzigingen, niet alleen de laatste.",
@@ -43,17 +47,14 @@ public enum ReleaseNotes {
 public enum LaunchPlan: Equatable, Sendable {
     /// Very first launch: the story, then the permission steps, then the help.
     case firstRun
-    /// A newer version than the one last opened; `notes` is the full changelog. The Hush story is only repeated for a new major or minor version.
-    case updated(notes: [ReleaseEntry], showIntro: Bool)
+    /// A newer version than the one last opened: the Hush story, then `notes` (the full changelog).
+    case updated(notes: [ReleaseEntry])
     case nothing
 
     public static func decide(onboardingDone: Bool, lastSeenVersion: String?, current: String,
                               releases: [ReleaseEntry] = ReleaseNotes.entries) -> LaunchPlan {
         guard onboardingDone else { return .firstRun }
         if let last = lastSeenVersion, ReleaseNotes.compare(last, current) != .orderedAscending { return .nothing }
-        return .updated(notes: ReleaseNotes.entries(upTo: current, in: releases),
-                        showIntro: lastSeenVersion.map { majorMinor($0) != majorMinor(current) } ?? true)
+        return .updated(notes: ReleaseNotes.entries(upTo: current, in: releases))
     }
-
-    private static func majorMinor(_ version: String) -> [Substring] { Array(version.split(separator: ".").prefix(2)) }
 }

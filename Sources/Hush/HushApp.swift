@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         UNUserNotificationCenter.current().delegate = self
         installMainMenu()
         statusItem = StatusItemController(model: model)
+        model.showMenuBarHint = { [weak self] in self?.statusItem?.showHint() }
         model.start()
         HotKeyCenter.shared.register(model.shortcut) { [weak self] in
             Task { @MainActor in self?.model.toggleRecording() }
