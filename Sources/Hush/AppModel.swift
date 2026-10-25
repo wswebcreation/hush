@@ -72,15 +72,16 @@ final class AppModel: ObservableObject {
         switch plan {
         case .firstRun:
             windows.showStory(model: self, thenOnboarding: true)
-        case .updated(let notes):
-            // Intro, then what is new, then any permission that is still missing.
-            windows.showStory(model: self) { [weak self] in
+        case .updated(let notes, let showIntro):
+            // Intro (new major or minor version only), then what is new, then any permission that is still missing.
+            let showNotes = { [weak self] in
                 guard let self else { return }
                 self.windows.showReleaseNotes(entries: notes) { [weak self] in
                     guard let self else { return }
                     self.windows.showOnboarding(model: self, thenHelp: false)
                 }
             }
+            if showIntro { windows.showStory(model: self, then: showNotes) } else { showNotes() }
         case .nothing:
             windows.showOnboarding(model: self, thenHelp: !settings.hasSeenHelp)
         }

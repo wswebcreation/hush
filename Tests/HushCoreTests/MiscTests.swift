@@ -163,14 +163,24 @@ import Foundation
 
     @Test func updateShowsOnlyNewerNotes() {
         let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.1", releases: releases)
-        guard case .updated(let notes) = plan else { Issue.record("expected update"); return }
+        guard case .updated(let notes, _) = plan else { Issue.record("expected update"); return }
         #expect(notes.map(\.version) == ["1.1"])
     }
 
     @Test func existingInstallWithoutLastSeenShowsCurrentRelease() {
         let plan = LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.1", releases: releases)
-        guard case .updated(let notes) = plan else { Issue.record("expected update"); return }
+        guard case .updated(let notes, _) = plan else { Issue.record("expected update"); return }
         #expect(notes.map(\.version) == ["1.1"])
+    }
+
+    @Test func patchSkipsTheIntroButMinorShowsIt() {
+        let r = [ReleaseEntry(version: "1.1", notes: ["c"]), ReleaseEntry(version: "1.0.1", notes: ["b"]), ReleaseEntry(version: "1.0", notes: ["a"])]
+        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.0.1", releases: r)
+                == .updated(notes: [r[1]], showIntro: false))
+        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: "1.0", current: "1.1", releases: r)
+                == .updated(notes: [r[0], r[1]], showIntro: true))
+        #expect(LaunchPlan.decide(onboardingDone: true, lastSeenVersion: nil, current: "1.0.1", releases: r)
+                == .updated(notes: [r[1]], showIntro: true))
     }
 
     @Test func versionsCompareNumerically() {

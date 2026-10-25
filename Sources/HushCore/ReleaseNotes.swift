@@ -10,6 +10,9 @@ public struct ReleaseEntry: Equatable, Sendable {
 public enum ReleaseNotes {
     /// Newest first. Add an entry here for every release; `Info.plist` must carry the same version.
     public static let entries: [ReleaseEntry] = [
+        ReleaseEntry(version: "1.0.1", notes: [
+            "Tabellen in de notities staan nu als echte tabellen in het Word-document.",
+        ]),
         ReleaseEntry(version: "1.0", notes: [
             "Neem gesprekken op vanuit de menubalk, met je microfoon en het geluid van je Mac.",
             "Het transcript maakt je Mac zelf; je audio verlaat je Mac nooit.",
@@ -36,14 +39,17 @@ public enum ReleaseNotes {
 public enum LaunchPlan: Equatable, Sendable {
     /// Very first launch: the story, then the permission steps, then the help.
     case firstRun
-    /// A newer version than the one last opened: the story, then the release notes.
-    case updated(notes: [ReleaseEntry])
+    /// A newer version than the one last opened. The Hush story is only repeated for a new major or minor version.
+    case updated(notes: [ReleaseEntry], showIntro: Bool)
     case nothing
 
     public static func decide(onboardingDone: Bool, lastSeenVersion: String?, current: String,
                               releases: [ReleaseEntry] = ReleaseNotes.entries) -> LaunchPlan {
         guard onboardingDone else { return .firstRun }
         if let last = lastSeenVersion, ReleaseNotes.compare(last, current) != .orderedAscending { return .nothing }
-        return .updated(notes: ReleaseNotes.entries(since: lastSeenVersion, current: current, in: releases))
+        return .updated(notes: ReleaseNotes.entries(since: lastSeenVersion, current: current, in: releases),
+                        showIntro: lastSeenVersion.map { majorMinor($0) != majorMinor(current) } ?? true)
     }
+
+    private static func majorMinor(_ version: String) -> [Substring] { Array(version.split(separator: ".").prefix(2)) }
 }
