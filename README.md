@@ -37,7 +37,7 @@ You only do step 2 once. After an update from the same sender you may need to al
 4. **Choose notes**: Claude, ChatGPT, or Overslaan. Add participant names if you like.
 5. **Finish.** By default the audio is deleted afterwards (it goes to the Trash); the transcript and notes stay. You can change this in Instellingen › Opslag.
 
-Everything is saved in `~/Documents/Hush/<date time>/` (`transcript.txt`, `notities.md`, `meta.json`, and `audio.m4a` while the audio is kept). Open **Opnamen** from the menu to search and replay recordings.
+Everything is saved in `~/Documents/Hush/<date time>/` (`transcript.txt`, `notities.docx`, `meta.json`, and `audio.m4a` while the audio is kept). The notes are a Word document you can share; Hush also keeps a plain-text copy (`notities.md`) to show them in the app. Per recording, Hush shows how many tokens the notes used and roughly what they cost. Open **Opnamen** from the menu to search and replay recordings.
 
 ## Getting an API key
 
