@@ -46,6 +46,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
         return window
     }
 
+    /// Buttons that close their own window run it after the click has finished, so the window is not torn down inside its own event.
+    private func afterClick(_ action: @escaping () -> Void) -> () -> Void {
+        { DispatchQueue.main.async(execute: action) }
+    }
+
     private func present(_ window: NSWindow) {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -101,7 +106,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     func showHelp(model: AppModel) {
         if let w = help { present(w); return }
-        let w = makeWindow(HelpView(onClose: { [weak self] in self?.help?.close() }).environmentObject(model),
+        let w = makeWindow(HelpView(onClose: afterClick { [weak self] in self?.help?.close() }).environmentObject(model),
                            size: NSSize(width: 560, height: 520), title: L10n.helpTitle)
         help = w
         present(w)
@@ -117,7 +122,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
             if thenHelp { self?.showHelp(model: model) }
         }
         guard !steps.isEmpty else { finish(model); return }
-        let w = makeWindow(OnboardingView(steps: steps, onFinish: { [weak model] in if let model { finish(model) } }).environmentObject(model), size: NSSize(width: 560, height: 520), title: L10n.flowWindow)
+        let w = makeWindow(OnboardingView(steps: steps, onFinish: afterClick { [weak model] in if let model { finish(model) } }).environmentObject(model), size: NSSize(width: 560, height: 520), title: L10n.flowWindow)
         onboarding = w
         present(w)
     }
@@ -129,7 +134,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if thenOnboarding { afterStory = { [weak self, weak model] in if let model { self?.showOnboarding(model: model) } } }
         else if let next { afterStory = next }
         let w = makeWindow(StoryView(buttonTitle: thenOnboarding ? L10n.storyStart : (next != nil ? L10n.flowNext : L10n.storyClose),
-                                     onFinish: { [weak self] in self?.story?.close() }),
+                                     onFinish: afterClick { [weak self] in self?.story?.close() }),
                            size: NSSize(width: 560, height: 600), title: L10n.storyMenu)
         w.standardWindowButton(.zoomButton)?.isEnabled = false
         story = w
@@ -139,7 +144,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     func showReleaseNotes(entries: [ReleaseEntry], then next: (() -> Void)? = nil) {
         if let w = releaseNotes { present(w); return }
         afterReleaseNotes = next
-        let w = makeWindow(ReleaseNotesView(entries: entries, onFinish: { [weak self] in self?.releaseNotes?.close() }),
+        let w = makeWindow(ReleaseNotesView(entries: entries, onFinish: afterClick { [weak self] in self?.releaseNotes?.close() }),
                            size: NSSize(width: 560, height: 520), title: L10n.releaseNotesWindow)
         w.standardWindowButton(.zoomButton)?.isEnabled = false
         releaseNotes = w
@@ -148,7 +153,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     func showKeyHelp(model: AppModel, provider: NotesProviderKind) {
         keyHelp?.close()
-        let w = makeWindow(KeyHelpView(provider: provider, onClose: { [weak self] in self?.keyHelp?.close() }).environmentObject(model),
+        let w = makeWindow(KeyHelpView(provider: provider, onClose: afterClick { [weak self] in self?.keyHelp?.close() }).environmentObject(model),
                            size: NSSize(width: 560, height: 520), title: L10n.keyHelpTitle(provider.displayName))
         keyHelp = w
         present(w)
@@ -163,6 +168,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
+        // A button often closes its own window in the middle of its click. Keep the window and its SwiftUI views alive
+        // until that event is finished instead of freeing them inside it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { _ = window }
         if window === library { library = nil }
         if window === settings { settings = nil }
         if window === about { about = nil }
@@ -172,12 +180,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if window === releaseNotes {
             releaseNotes = nil
             let next = afterReleaseNotes; afterReleaseNotes = nil
-            next?()
+            if let next { DispatchQueue.main.async { next() } }
         }
         if window === story {
             story = nil
             let next = afterStory; afterStory = nil
-            next?()
+            // Open the follow-up window after this close has finished, not inside it.
+            if let next { DispatchQueue.main.async { next() } }
         }
         if let id = flowWindows.first(where: { $0.value === window })?.key {
             flowWindows[id] = nil

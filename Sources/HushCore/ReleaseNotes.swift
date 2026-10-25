@@ -10,6 +10,9 @@ public struct ReleaseEntry: Equatable, Sendable {
 public enum ReleaseNotes {
     /// Newest first. Add an entry here for every release; `Info.plist` must carry the same version.
     public static let entries: [ReleaseEntry] = [
+        ReleaseEntry(version: "1.0.2", notes: [
+            "Hush kon crashen bij het sluiten van een scherm, bijvoorbeeld na het geven van toegang tot de microfoon. Dat is verholpen.",
+        ]),
         ReleaseEntry(version: "1.0.1", notes: [
             "Tabellen in de notities staan nu als echte tabellen in het Word-document.",
         ]),

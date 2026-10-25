@@ -106,8 +106,11 @@ final class StatusItemController: NSObject {
     }
 
     func close() {
-        panel?.orderOut(nil)
+        let closing = panel
+        closing?.orderOut(nil)
         panel = nil
+        // The panel is closed from inside its own button clicks; free it after the event, not during it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { _ = closing }
         model.panelOpen = false
         item.button?.highlight(false)
         monitors.forEach { NSEvent.removeMonitor($0) }
