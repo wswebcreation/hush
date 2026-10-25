@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key><string>nl.techchamps.hush</string>
+    <key>CFBundleName</key><string>Hush</string>
+    <key>CFBundleDisplayName</key><string>Hush</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundleExecutable</key><string>Hush</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleDevelopmentRegion</key><string>nl</string>
+    <key>CFBundleLocalizations</key><array><string>nl</string></array>
+    <key>LSMinimumSystemVersion</key><string>26.0</string>
+    <key>LSUIElement</key><true/>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSMicrophoneUsageDescription</key><string>Hush neemt je eigen stem op via de microfoon.</string>
+    <key>NSAudioCaptureUsageDescription</key><string>Hush neemt het geluid van je Mac op, zodat ook de anderen in het gesprek in het transcript komen.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>Hush transcribeert je opnames op deze Mac. Er wordt niets geüpload.</string>
+</dict>
+</plist>

@@ -1,0 +1,49 @@
+import Foundation
+
+public struct ReleaseEntry: Equatable, Sendable {
+    public let version: String
+    public let notes: [String]
+    public init(version: String, notes: [String]) { self.version = version; self.notes = notes }
+}
+
+/// What to show when Hush opens: the intro and release notes after an update, the permission steps when access is missing.
+public enum ReleaseNotes {
+    /// Newest first. Add an entry here for every release; `Info.plist` must carry the same version.
+    public static let entries: [ReleaseEntry] = [
+        ReleaseEntry(version: "1.0", notes: [
+            "Neem gesprekken op vanuit de menubalk, met je microfoon en het geluid van je Mac.",
+            "Het transcript maakt je Mac zelf; je audio verlaat je Mac nooit.",
+            "Laat op verzoek Claude of ChatGPT notities maken, met de namen van de deelnemers erin.",
+            "Notities worden bewaard als Word-document, met per opname de tokens en geschatte kosten.",
+            "Hush vraagt bij het openen om de toegang die nog ontbreekt (microfoon en systeemaudio).",
+            "Na een update zie je de uitleg over Hush en wat er nieuw is.",
+        ]),
+    ]
+
+    /// Entries newer than `lastSeen` up to and including `current`, newest first.
+    /// Without a last seen version only the current release is shown.
+    public static func entries(since lastSeen: String?, current: String, in list: [ReleaseEntry] = ReleaseNotes.entries) -> [ReleaseEntry] {
+        let upToCurrent = list.filter { compare($0.version, current) != .orderedDescending }
+        guard let lastSeen else { return upToCurrent.filter { compare($0.version, current) == .orderedSame } }
+        return upToCurrent.filter { compare($0.version, lastSeen) == .orderedDescending }
+    }
+
+    public static func compare(_ a: String, _ b: String) -> ComparisonResult {
+        a.compare(b, options: .numeric)
+    }
+}
+
+public enum LaunchPlan: Equatable, Sendable {
+    /// Very first launch: the story, then the permission steps, then the help.
+    case firstRun
+    /// A newer version than the one last opened: the story, then the release notes.
+    case updated(notes: [ReleaseEntry])
+    case nothing
+
+    public static func decide(onboardingDone: Bool, lastSeenVersion: String?, current: String,
+                              releases: [ReleaseEntry] = ReleaseNotes.entries) -> LaunchPlan {
+        guard onboardingDone else { return .firstRun }
+        if let last = lastSeenVersion, ReleaseNotes.compare(last, current) != .orderedAscending { return .nothing }
+        return .updated(notes: ReleaseNotes.entries(since: lastSeenVersion, current: current, in: releases))
+    }
+}
