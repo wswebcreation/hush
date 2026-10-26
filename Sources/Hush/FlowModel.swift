@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import HushCore
 import os
 
@@ -55,21 +56,26 @@ final class FlowModel: ObservableObject {
         let store = self.store
         let locale = app.settings.transcriptionLocale
         let hasSystem = rec.meta.systemAudioCaptured && FileManager.default.fileExists(atPath: rec.systemURL.path)
+        // A microphone track without any audio (it stalled during the meeting) must not fail the whole transcription.
+        let hasMic = Self.hasAudio(rec.micURL)
 
         task = Task { [weak self] in
             do {
                 _ = try? store.update(rec) { $0.transcriptStatus = .inProgress }
                 async let mix: Void = (try? await AudioMixer.export(mic: rec.micURL, system: hasSystem ? rec.systemURL : nil, to: rec.audioURL)) ?? ()
 
-                let progressBox = ProgressBox(passes: hasSystem ? 2 : 1)
+                let progressBox = ProgressBox(passes: max(1, (hasMic ? 1 : 0) + (hasSystem ? 1 : 0)))
                 let report: @Sendable (Int, Double) -> Void = { pass, value in
                     let total = progressBox.set(pass: pass, value: value)
                     Task { @MainActor in self?.updateProgress(total) }
                 }
-                let micSegments = try await Transcriber.transcribe(file: rec.micURL, speaker: .you, locale: locale) { report(0, $0) }
+                var micSegments: [TranscriptSegment] = []
+                if hasMic {
+                    micSegments = try await Transcriber.transcribe(file: rec.micURL, speaker: .you, locale: locale) { report(0, $0) }
+                }
                 var systemSegments: [TranscriptSegment] = []
                 if hasSystem {
-                    systemSegments = try await Transcriber.transcribe(file: rec.systemURL, speaker: .them, locale: locale) { report(1, $0) }
+                    systemSegments = try await Transcriber.transcribe(file: rec.systemURL, speaker: .them, locale: locale) { report(hasMic ? 1 : 0, $0) }
                 }
                 _ = await mix
                 try Task.checkCancellation()
@@ -86,6 +92,11 @@ final class FlowModel: ObservableObject {
                 await self?.transcriptionFailed()
             }
         }
+    }
+
+    nonisolated static func hasAudio(_ url: URL) -> Bool {
+        guard let file = try? AVAudioFile(forReading: url) else { return false }
+        return file.length > 0
     }
 
     private func updateProgress(_ value: Double) {

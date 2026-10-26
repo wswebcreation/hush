@@ -25,7 +25,7 @@ final class AudioTest: ObservableObject {
     /// Last finished or running test, so the status line stays visible after a test ends.
     @Published private(set) var last: Kind?
 
-    private var engine: AVAudioEngine?
+    private var mic: MicCapture?
     private var tap: SystemTap?
     private var writer: ChannelWriter?
     private var tempURL: URL?
@@ -37,24 +37,17 @@ final class AudioTest: ObservableObject {
 
     func startMic(deviceUID: String?) {
         stop()
-        guard let device = AudioDevices.device(uid: deviceUID) else { return begin(.mic, failed: true) }
-        let engine = AVAudioEngine()
-        var deviceID = device.id
-        if let unit = engine.inputNode.audioUnit {
-            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-                                 &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size))
-        }
         let box = box
-        engine.inputNode.installTap(onBus: 0, bufferSize: 2048, format: engine.inputNode.outputFormat(forBus: 0)) { buffer, _ in
+        let mic = MicCapture(preferredUID: deviceUID) { buffer in
             guard let ch = buffer.floatChannelData, buffer.frameLength > 0 else { return }
             let rms = AudioLevels.rms(UnsafeBufferPointer(start: ch[0], count: Int(buffer.frameLength)))
             box.level = AudioLevels.meterValue(rms: rms)
         }
-        do { try engine.start() } catch {
+        do { try mic.start() } catch {
             log.error("mic test failed: \(error.localizedDescription)")
             return begin(.mic, failed: true)
         }
-        self.engine = engine
+        self.mic = mic
         begin(.mic)
     }
 
@@ -78,8 +71,7 @@ final class AudioTest: ObservableObject {
 
     func stop() {
         timer?.invalidate(); timer = nil
-        engine?.inputNode.removeTap(onBus: 0)
-        engine?.stop(); engine = nil
+        mic?.stop(); mic = nil
         tap?.stop(); tap = nil
         writer = nil
         chime?.stop(); chime = nil

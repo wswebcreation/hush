@@ -72,13 +72,13 @@ final class AudioRecorder: @unchecked Sendable {
     private let micDeviceUID: String?
     private let captureSystem: Bool
 
-    private var engine: AVAudioEngine?
+    private var mic: MicCapture?
     private var micWriter: ChannelWriter?
     private(set) var systemWriter: ChannelWriter?
     private var tap = SystemTap()
     private var outputListener: AudioObjectPropertyListenerBlock?
 
-    private(set) var micDeviceName = ""
+    var micDeviceName: String { mic?.deviceName ?? "" }
 
     init(recording: Recording, micDeviceUID: String?, captureSystem: Bool) {
         self.recording = recording; self.micDeviceUID = micDeviceUID; self.captureSystem = captureSystem
@@ -89,24 +89,17 @@ final class AudioRecorder: @unchecked Sendable {
     var micSeconds: Double { micWriter?.seconds ?? 0 }
 
     func start() throws {
-        guard let device = AudioDevices.device(uid: micDeviceUID) else { throw RecorderError.noInputDevice }
-        micDeviceName = device.name
-
         let writer = try ChannelWriter(url: recording.micURL)
         micWriter = writer
-        let engine = AVAudioEngine()
-        var deviceID = device.id
-        if let unit = engine.inputNode.audioUnit {
-            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-                                 &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size))
-        }
-        let format = engine.inputNode.outputFormat(forBus: 0)
-        engine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in writer.append(buffer) }
-        try engine.start()
-        self.engine = engine
+        let mic = MicCapture(preferredUID: micDeviceUID) { buffer in writer.append(buffer) }
+        try mic.start()
+        self.mic = mic
 
         if captureSystem { startSystem() }
     }
+
+    /// Called every second while recording: picks up a microphone that was switched on or unplugged, and restarts a stalled one.
+    func restartMicIfStopped() { mic?.refresh() }
 
     private func startSystem() {
         do {
@@ -147,9 +140,8 @@ final class AudioRecorder: @unchecked Sendable {
             AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &addr, .main, block)
             outputListener = nil
         }
-        engine?.inputNode.removeTap(onBus: 0)
-        engine?.stop()
-        engine = nil
+        mic?.stop()
+        mic = nil
         tap.stop()
         let seconds = micWriter?.seconds ?? 0
         micWriter = nil

@@ -195,3 +195,19 @@ import Foundation
         #expect(!MarkdownTable.isRow("Gewone tekst | met pijp"))
     }
 }
+
+@Suite struct RecordingClockTests {
+    @Test func countsWallTimeWithoutAnyAudio() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        #expect(RecordingClock(start: start).elapsed(at: start.addingTimeInterval(3_261)) == 3_261)
+    }
+
+    @Test func pausedTimeIsNotCounted() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        var clock = RecordingClock(start: start)
+        clock.pause(at: start.addingTimeInterval(60))
+        #expect(clock.elapsed(at: start.addingTimeInterval(90)) == 60)
+        clock.resume(at: start.addingTimeInterval(120))
+        #expect(clock.elapsed(at: start.addingTimeInterval(150)) == 90)
+    }
+}

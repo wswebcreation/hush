@@ -42,6 +42,7 @@ final class AppModel: ObservableObject {
     private var recorder: AudioRecorder?
     private var current: Recording?
     private var timer: Timer?
+    private var clock: RecordingClock?
     private var micSilence = SilenceDetector()
     private var systemSilence = SilenceDetector()
     private var systemWasEverLoud = false
@@ -156,7 +157,7 @@ final class AppModel: ObservableObject {
                 current = rec
                 micDeviceName = recorder.micDeviceName
                 micSilence.reset(); systemSilence.reset(); systemWasEverLoud = false
-                elapsed = 0; isPaused = false; startedAt = meta.start
+                elapsed = 0; isPaused = false; startedAt = meta.start; clock = RecordingClock(start: meta.start)
                 micSilenceMinutes = nil; systemSilenceMinutes = nil
                 phase = .recording
                 rescheduleTimer()
@@ -182,13 +183,17 @@ final class AppModel: ObservableObject {
     func togglePause() {
         guard phase == .recording else { return }
         isPaused.toggle()
+        if isPaused { clock?.pause() } else { clock?.resume() }
         recorder?.setPaused(isPaused)
         onRecordingStateChange?()
     }
 
     func stopRecording() {
         guard phase == .recording, let recorder, let rec = current else { return }
-        let seconds = recorder.stop()
+        // The duration comes from the wall clock, never from a track: the microphone may have delivered nothing.
+        let micSeconds = recorder.stop()
+        let seconds = clock?.elapsed() ?? micSeconds
+        clock = nil
         timer?.invalidate(); timer = nil
         self.recorder = nil; current = nil
         phase = .idle; isPaused = false; micLevel = 0; systemLevel = 0
@@ -244,7 +249,9 @@ final class AppModel: ObservableObject {
 
     private func tick() {
         guard let recorder else { return }
-        elapsed = recorder.micSeconds
+        elapsed = clock?.elapsed() ?? recorder.micSeconds
+        recorder.restartMicIfStopped()
+        if micDeviceName != recorder.micDeviceName, !recorder.micDeviceName.isEmpty { micDeviceName = recorder.micDeviceName }
         let mic = recorder.micLevel, sys = recorder.systemLevel
         if panelOpen { micLevel = isPaused ? 0 : mic; systemLevel = isPaused ? 0 : sys }
         guard !isPaused else { return }
